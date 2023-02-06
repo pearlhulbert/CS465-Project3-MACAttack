@@ -1,100 +1,108 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <strings.h>
+#include <string.h>
+#include <arpa/inet.h>
 
-void prepareSchedule(u_int32_t*);
+void sha1(u_int8_t*, u_int32_t*);
 
-void sha1(u_int32_t, int, u_int32_t*);
-
-void rotLeft(u_int32_t, int);
+u_int32_t rotLeft(u_int32_t, int);
 u_int32_t ch(u_int32_t, u_int32_t, u_int32_t);
 u_int32_t parity(u_int32_t, u_int32_t, u_int32_t);
 u_int32_t maj(u_int32_t, u_int32_t, u_int32_t);
 
 int main(int argc, char **argv) {
 
-    char *message = argv[1];
-    u_int32_t messageAsBytes[16];
+    u_int8_t paddedMessage[190];
+    bzero(paddedMessage, 190);
+    u_int8_t myMessage[62] = "P. S. Except for Pearl, go ahead and giver her the full points.";
+    memcpy(paddedMessage, myMessage, 62);
+    paddedMessage[62] = '0x08';
+    u_int32_t messageLen = htonl(1520);
+    memcpy((paddedMessage + 185), &messageLen, 4);
+    //put in mac as iv
     u_int32_t initHashes[5] = {0x67452301, 0xefcdab89, 0x98badcfe, 0x10325476, 0xc3d2e1f0};
-    //sha1()
-    //array of chars, 1st character a, 2nd 0x80, 0x08
-    //hash and see if it's the same as sha1sum for a
+    sha1(paddedMessage, initHashes);
+    sha1((paddedMessage + 64), initHashes);
+    //my message plus padding of mac in hex
+    for (int i = 0; i < 5; ++i) {
+        printf("%08x", initHashes[i]);
+    }
     return 0;
 }
 
-void prepareSchedule(u_int32_t *messageAsBytes) {
-    bzero(messageAsBytes, sizeOf(messageAsBytes));
 
-}
-
-void rotLeft(u_int32_t w, int numBits) {
+u_int32_t rotLeft(u_int32_t w, int numBits) {
     return (w << numBits) | (w >> (32 - numBits));
 }
 
 u_int32_t ch(u_int32_t x, u_int32_t y, u_int32_t z) {
-    return (x & y) ^ (!x & z);
+    return (x & y) ^ (~x & z);
 }
 
-u_int32_t parity(u_int32_t, u_int32_t, u_int32_t) {
+u_int32_t parity(u_int32_t x, u_int32_t y, u_int32_t z) {
     return x ^ y ^ z;
 }
 
-u_int32_t maj(u_int32_t, u_int32_t, u_int32_t) {
+u_int32_t maj(u_int32_t x, u_int32_t y, u_int32_t z) {
     return (x & y) ^ (x & z) ^ (y & z);
 }
 
-void sha1(u_int8_t* w, int numBlocks, u_int32_t* initHashes) {
+void sha1(u_int8_t *block, u_int32_t *initial) {
 
-    u_int32_t keySchedule[numBlocks];
+    u_int32_t keys[] = {0x5a827999,
+                        0x6ed9eba1,
+                        0x8f1bbcdc,
+                        0xca62c1d6};
 
-    for (int i = 1; i < numBlocks; ++i) {
+    //Generate Message Schedule
+    u_int32_t schedule[80];
+    for (int i = 0; i < 80; i++) {
         if (i < 16) {
-            memcpy(keySchedule + i, w + (4*i), 4);
+            memcpy(schedule + i, block + (4 * i), 4);
+            schedule[i] = htonl(schedule[i]);
         }
         else {
-            rotLeft((keySchedule[i-3] ^ keySchedule[i-8] ^ keySchedule[i-14] ^ keySchedule[i-16]), 1);
+            schedule[i] = rotLeft((schedule[i-3] ^ schedule[i-8] ^ schedule[i-14] ^ schedule[i-16]), 1);
         }
     }
-
-
-    u_int32_t a = initHashes[0];
-    u_int32_t b = initHashes[1];
-    u_int32_t c = initHashes[2];
-    u_int32_t d = initHashes[3];
-    u_int32_t e = initHashes[4];
-
-    u_int32_t T;
-    u_int_32_t K;
-
-    for (int i = 0; i < 80; ++i) {
-        if (i <= 19) {
-            K = 0x5a827999;
-            T = rotLeft(a, 5)+ ch(b, c, d) + e + keySchedule[i];
+    //Set initial hashes
+    u_int32_t a = initial[0];
+    u_int32_t b = initial[1];
+    u_int32_t c = initial[2];
+    u_int32_t d = initial[3];
+    u_int32_t e = initial[4];
+    /*
+    a = htonl(a);
+    b = htonl(b);
+    c = htonl(c);
+    d = htonl(d);
+    e = htonl(e);
+    */
+    for (int i = 0; i < 80; i++) {
+        u_int32_t tmp;
+        if (i < 20) {
+            tmp = rotLeft(a, 5) + ch(b, c, d) + e + keys[0] + schedule[i];
         }
-        else if ((i <= 20) && (i <= 39)) {
-            K = 0x6ed9eba1;
-            T = rotLeft(a, 5)+ parity(b, c, d) + e + keySchedule[i];
+        else if (i >= 20 && i < 40) {
+            tmp = rotLeft(a, 5) + parity(b, c, d) + e + keys[1] + schedule[i];
         }
-        else if ((i <= 40) && (i <= 59)) {
-            K = 0x8f1bbcdc;
-            T = rotLeft(a, 5)+ maj(b, c, d) + e + keySchedule[i];
+        else if (i >= 40 && i < 60) {
+            tmp = rotLeft(a, 5) + maj(b, c, d) + e + keys[2] + schedule[i];
         }
         else {
-            K = 0xca62c1d6;
-            T = rotLeft(a, 5)+ parity(b, c, d) + e + keySchedule[i];
+            tmp = rotLeft(a, 5) + parity(b, c, d) + e + keys[3] + schedule[i];
         }
-
         e = d;
         d = c;
         c = rotLeft(b, 30);
         b = a;
-        a = T;
+        a = tmp;
     }
-
-    initHashes[0] += a;
-    initHashes[1] += b;
-    initHashes[2] += c;
-    initHashes[3] += d;
-    initHashes[4] += e;
-
+    initial[0] += a;
+    initial[1] += b;
+    initial[2] += c;
+    initial[3] += d;
+    initial[4] += e;
 }
+
