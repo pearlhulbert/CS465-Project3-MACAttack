@@ -15,31 +15,23 @@ int main() {
 
     u_int8_t paddedMessage[190];
     bzero(paddedMessage, 190);
-    u_int8_t myMessage[62] = "P.S. Except for Pearl, go ahead and give her the full points.";
+    u_int8_t myMessage[61] = "P.S. Except for Pearl, go ahead and give her the full points.";
     memcpy(paddedMessage, myMessage, 62);
-    paddedMessage[62] = 0x80;
-    u_int32_t messageLen = htonl(1520);
+    paddedMessage[61] = 0x80;
+    u_int32_t messageLen = htonl(1512);
     memcpy((paddedMessage + 185), &messageLen, 4);
+    for (int i = 0; i < 190; ++i) {
+        printf("%02hhx", paddedMessage[i]);
+    }
+    printf("\n");
     //put in mac as iv
     u_int32_t initHashes[5] = {0xe384efad, 0xf26767a6, 0x13162142, 0xb5ef0efb, 0xb9d7659a};
     sha1(paddedMessage, initHashes);
     sha1((paddedMessage + 64), initHashes);
     for (int i = 0; i < 5; ++i) {
-        printf("%x\n", initHashes[i]);
+        printf("%08x", initHashes[i]);
     }
-    u_int8_t finalMessage[128];
-    bzero(finalMessage, 128);
-    memcpy(finalMessage, &initHashes[0], 4);
-    memcpy(finalMessage + 4, &initHashes[1], 4);
-    memcpy(finalMessage + 8, &initHashes[2], 4);
-    memcpy(finalMessage + 12, &initHashes[3], 4);
-    memcpy(finalMessage + 16, &initHashes[4], 4);
-    finalMessage[20] = 0x80;
-    u_int32_t finalLen = 160;
-    memcpy((finalMessage + 123), &finalLen, 4);
-    for (int i = 0; i < 128; ++i) {
-        printf("%02x", finalMessage[i]);
-    }
+    printf("\n");
     return 0;
 }
 
