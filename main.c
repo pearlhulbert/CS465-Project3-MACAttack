@@ -13,21 +13,33 @@ u_int32_t maj(u_int32_t, u_int32_t, u_int32_t);
 
 int main() {
 
-    u_int8_t paddedMessage[190];
-    bzero(paddedMessage, 190);
+    u_int8_t paddedMessage[189];
+    bzero(paddedMessage, 189);
+    u_int8_t ogMessage[47] = "No one has completed lab 2 so give them all a 0";
     u_int8_t myMessage[61] = "P.S. Except for Pearl, go ahead and give her the full points.";
-    memcpy(paddedMessage, myMessage, 62);
-    paddedMessage[61] = 0x80;
-    u_int32_t messageLen = htonl(1512);
-    memcpy((paddedMessage + 185), &messageLen, 4);
-    for (int i = 0; i < 190; ++i) {
+    memcpy(paddedMessage, ogMessage, 47);
+    paddedMessage[47] = 0x80;
+    u_int32_t ogMessageLen = htonl(504);
+    memcpy(paddedMessage + 124, &ogMessageLen, 4);
+    memcpy(paddedMessage + 128, myMessage, 61);
+    for (int i = 0; i < 189; ++i) {
         printf("%02hhx", paddedMessage[i]);
+    }
+    printf("\n");
+    u_int8_t hashMessage[189];
+    bzero(hashMessage, 189);
+    memcpy(hashMessage, myMessage, 61);
+    hashMessage[61] = 0x80;
+    u_int32_t messageLen = htonl(1512);
+    memcpy(hashMessage + 185, &messageLen, 4);
+    for (int i = 0; i < 189; ++i) {
+        printf("%02hhx", hashMessage[i]);
     }
     printf("\n");
     //put in mac as iv
     u_int32_t initHashes[5] = {0xe384efad, 0xf26767a6, 0x13162142, 0xb5ef0efb, 0xb9d7659a};
-    sha1(paddedMessage, initHashes);
-    sha1((paddedMessage + 64), initHashes);
+    sha1(hashMessage, initHashes);
+    sha1((hashMessage + 63), initHashes);
     for (int i = 0; i < 5; ++i) {
         printf("%08x", initHashes[i]);
     }
